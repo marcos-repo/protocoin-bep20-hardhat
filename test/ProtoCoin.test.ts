@@ -1,5 +1,6 @@
 import {
   loadFixture,
+  time
 } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 import { expect } from "chai";
 import hre from "hardhat";
@@ -152,4 +153,110 @@ describe("ProtoCoin Tests", function () {
             .be
             .revertedWithCustomError(protocoin, "ERC20InsufficientAllowance");
     });
+
+    it("Should mint once", async function () {
+      const { protocoin, owner, otherAccount } = await loadFixture(deployFixture);
+
+      const mintAmount = 1000n;
+      await protocoin.setMintAmount(mintAmount);
+
+      const balanceBefore = await protocoin.balanceOf(otherAccount.address);
+      const instance = protocoin.connect(otherAccount);
+      await instance.mint();
+      const balanceAfter = await protocoin.balanceOf(otherAccount.address);
+
+      expect(balanceAfter).eq(balanceBefore + mintAmount);
+    });
+
+    it("Should mint twice (different account)", async function () {
+      const { protocoin, owner, otherAccount } = await loadFixture(deployFixture);
+
+      const mintAmount = 1000n;
+      await protocoin.setMintAmount(mintAmount);
+
+      
+      const balanceOwnerBefore = await protocoin.balanceOf(owner.address);
+      await protocoin.mint();
+      const balanceOwnerAfter = await protocoin.balanceOf(owner.address);
+
+      const balanceOtherAccountBefore = await protocoin.balanceOf(otherAccount.address);
+      const instance = protocoin.connect(otherAccount);
+      await instance.mint();
+      const balanceOtherAccountAfter = await protocoin.balanceOf(otherAccount.address);
+
+      expect(balanceOwnerAfter).eq(balanceOwnerBefore + mintAmount);
+      expect(balanceOtherAccountAfter).eq(balanceOtherAccountBefore + mintAmount);
+    });
+
+    it("Should mint twice (different moment)", async function () {
+      const { protocoin, owner, otherAccount } = await loadFixture(deployFixture);
+
+      const mintDelay = 60 * 60 * 24;
+      const mintAmount = 1000n;
+      await protocoin.setMintAmount(mintAmount);
+
+      const balanceOtherAccountBefore = await protocoin.balanceOf(otherAccount.address);
+      const instance = protocoin.connect(otherAccount);
+      await instance.mint();
+
+      await time.increase(mintDelay * 2);
+
+      await instance.mint();
+      const balanceOtherAccountAfter = await protocoin.balanceOf(otherAccount.address);
+
+      expect(balanceOtherAccountAfter).eq(balanceOtherAccountBefore + (mintAmount * 2n));
+    });
+
+    it("Should NOT mint", async function () {
+      const { protocoin, owner, otherAccount } = await loadFixture(deployFixture);
+
+      const instance = protocoin.connect(otherAccount);      
+
+      await expect(instance.mint())
+            .to
+            .be
+            .revertedWith("Minting nao habilitado.");
+    });
+
+    it("Should NOT set mint amount", async function () {
+      const { protocoin, owner, otherAccount } = await loadFixture(deployFixture);
+
+      const mintAmount = 1000n;
+      const instance = protocoin.connect(otherAccount);      
+
+      await expect(instance.setMintAmount(mintAmount))
+            .to
+            .be
+            .revertedWith("Esta carteira nao tem permissao para executar esta chamada.");
+    });
+
+    it("Should NOT set mint delay", async function () {
+      const { protocoin, owner, otherAccount } = await loadFixture(deployFixture);
+
+      const mintDelay = 1000n;
+      const instance = protocoin.connect(otherAccount);      
+
+      await expect(instance.setMintDelay(mintDelay))
+            .to
+            .be
+            .revertedWith("Esta carteira nao tem permissao para executar esta chamada.");
+    });
+
+    it("Should NOT mint twice", async function () {
+      const { protocoin, owner, otherAccount } = await loadFixture(deployFixture);
+
+      const mintDelay = 60 * 60 * 24;
+      const mintAmount = 1000n;
+      await protocoin.setMintAmount(mintAmount);
+
+      const balanceOtherAccountBefore = await protocoin.balanceOf(otherAccount.address);
+      const instance = protocoin.connect(otherAccount);
+      await instance.mint();
+      await expect(instance.mint())
+            .to
+            .be
+            .revertedWith("Voce nao pode realizar o mint 2x em um dia.");
+    });
 });
+
+//FAZER O DEPLOY ANTES DO COMMIT
